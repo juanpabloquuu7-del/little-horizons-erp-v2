@@ -240,3 +240,73 @@ CREATE TABLE asistencias (
     INDEX idx_estado (estado_asistencia)
 ) ENGINE=InnoDB COMMENT='Registro de asistencia diaria de estudiantes';
 
+-- ============================================
+-- 3. MÓDULO DE ACTIVIDADES EXTRACURRICULARES
+-- ============================================
+
+-- Tabla de clubes
+CREATE TABLE clubes (
+    id_club INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_club VARCHAR(100) NOT NULL UNIQUE,
+    descripcion TEXT,
+    id_profesor_supervisor INT COMMENT 'Profesor encargado del club',
+    capacidad_maxima INT DEFAULT 30 COMMENT 'Cupo máximo de estudiantes',
+    horario_reunion VARCHAR(100) COMMENT 'Días y horario de reunión (ej: Martes 3-5 PM)',
+    esta_activo BOOLEAN DEFAULT TRUE,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_profesor_supervisor) REFERENCES profesores(id_profesor),
+    INDEX idx_activo (esta_activo),
+    INDEX idx_nombre (nombre_club)
+) ENGINE=InnoDB COMMENT='Catálogo de clubes extracurriculares';
+
+-- Membresías en clubes
+CREATE TABLE membresias_club (
+    id_membresia INT AUTO_INCREMENT PRIMARY KEY,
+    id_estudiante INT NOT NULL,
+    id_club INT NOT NULL,
+    fecha_ingreso DATE NOT NULL,
+    estado_membresia ENUM('Activa', 'Retirada') DEFAULT 'Activa',
+    fecha_retiro DATE,
+    motivo_retiro TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante) ON DELETE CASCADE,
+    FOREIGN KEY (id_club) REFERENCES clubes(id_club) ON DELETE CASCADE,
+    INDEX idx_estudiante (id_estudiante),
+    INDEX idx_club_estado (id_club, estado_membresia)
+) ENGINE=InnoDB COMMENT='Membresías de estudiantes en clubes';
+
+-- Tabla de eventos
+CREATE TABLE eventos (
+    id_evento INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_evento VARCHAR(150) NOT NULL,
+    descripcion TEXT,
+    tipo_evento ENUM('Académico', 'Cultural', 'Deportivo', 'Social', 'Científico') NOT NULL,
+    fecha_evento DATE NOT NULL,
+    lugar VARCHAR(150),
+    tiene_competencia BOOLEAN DEFAULT FALSE COMMENT 'Indica si el evento tiene competencia con posiciones',
+    id_organizador INT COMMENT 'Profesor organizador del evento',
+    esta_activo BOOLEAN DEFAULT TRUE,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_organizador) REFERENCES profesores(id_profesor),
+    INDEX idx_fecha (fecha_evento),
+    INDEX idx_tipo (tipo_evento),
+    INDEX idx_activo (esta_activo)
+) ENGINE=InnoDB COMMENT='Catálogo de eventos del colegio';
+
+-- Participantes en eventos
+CREATE TABLE participantes_evento (
+    id_participacion INT AUTO_INCREMENT PRIMARY KEY,
+    id_evento INT NOT NULL,
+    id_estudiante INT NOT NULL,
+    rol_participacion ENUM('Participante', 'Competidor', 'Organizador', 'Asistente') DEFAULT 'Participante',
+    posicion_obtenida VARCHAR(20) COMMENT 'Posición obtenida si hay competencia (1er Lugar, 2do Lugar, 3er Lugar, Participante)',
+    observaciones TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_evento) REFERENCES eventos(id_evento) ON DELETE CASCADE,
+    FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante) ON DELETE CASCADE,
+    UNIQUE KEY participacion_unica (id_evento, id_estudiante),
+    INDEX idx_evento (id_evento),
+    INDEX idx_estudiante (id_estudiante)
+) ENGINE=InnoDB COMMENT='Registro de participación de estudiantes en eventos';
+
