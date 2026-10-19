@@ -368,3 +368,74 @@ CREATE TABLE facturas (
     INDEX idx_pago (id_pago)
 ) ENGINE=InnoDB COMMENT='Registro de facturas electrónicas generadas';
 
+-- ============================================
+-- 5. MÓDULO DE GESTIÓN DE RECURSOS
+-- ============================================
+
+-- Categorías de recursos
+CREATE TABLE categorias_recurso (
+    id_categoria INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_categoria VARCHAR(50) NOT NULL UNIQUE,
+    descripcion TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB COMMENT='Categorías de recursos (Libro, Equipo de Laboratorio, etc.)';
+
+-- Tabla de recursos del colegio
+CREATE TABLE recursos (
+    id_recurso INT AUTO_INCREMENT PRIMARY KEY,
+    codigo_recurso VARCHAR(50) NOT NULL UNIQUE COMMENT 'Código de inventario único',
+    nombre_recurso VARCHAR(150) NOT NULL,
+    id_categoria INT NOT NULL,
+    descripcion TEXT,
+    fecha_adquisicion DATE,
+    ubicacion_fisica VARCHAR(100) COMMENT 'Ubicación física (Biblioteca, Laboratorio 1, etc.)',
+    estado_recurso ENUM('Disponible', 'Prestado', 'En Mantenimiento', 'Dado de Baja') DEFAULT 'Disponible',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_categoria) REFERENCES categorias_recurso(id_categoria),
+    INDEX idx_codigo (codigo_recurso),
+    INDEX idx_estado (estado_recurso),
+    INDEX idx_categoria (id_categoria),
+    INDEX idx_nombre (nombre_recurso)
+) ENGINE=InnoDB COMMENT='Inventario de recursos prestables del colegio';
+
+-- Tabla de préstamos de recursos a ESTUDIANTES
+CREATE TABLE prestamos_estudiante (
+    id_prestamo INT AUTO_INCREMENT PRIMARY KEY,
+    id_recurso INT NOT NULL,
+    id_estudiante INT NOT NULL COMMENT 'Estudiante que toma prestado el recurso',
+    fecha_prestamo DATE NOT NULL,
+    fecha_devolucion_esperada DATE NOT NULL,
+    fecha_devolucion_real DATE,
+    estado_prestamo ENUM('Activo', 'Devuelto', 'Vencido') DEFAULT 'Activo',
+    observaciones TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_recurso) REFERENCES recursos(id_recurso) ON DELETE CASCADE,
+    FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante) ON DELETE CASCADE,
+    INDEX idx_recurso_estado (id_recurso, estado_prestamo),
+    INDEX idx_estudiante (id_estudiante),
+    INDEX idx_estado (estado_prestamo),
+    INDEX idx_fecha_devolucion (fecha_devolucion_esperada)
+) ENGINE=InnoDB COMMENT='Registro de préstamos de recursos a estudiantes';
+
+-- Tabla de préstamos de recursos a PROFESORES
+CREATE TABLE prestamos_profesor (
+    id_prestamo INT AUTO_INCREMENT PRIMARY KEY,
+    id_recurso INT NOT NULL,
+    id_profesor INT NOT NULL COMMENT 'Profesor que toma prestado el recurso',
+    fecha_prestamo DATE NOT NULL,
+    fecha_devolucion_esperada DATE NOT NULL,
+    fecha_devolucion_real DATE,
+    estado_prestamo ENUM('Activo', 'Devuelto', 'Vencido') DEFAULT 'Activo',
+    observaciones TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_recurso) REFERENCES recursos(id_recurso) ON DELETE CASCADE,
+    FOREIGN KEY (id_profesor) REFERENCES profesores(id_profesor) ON DELETE CASCADE,
+    INDEX idx_recurso_estado (id_recurso, estado_prestamo),
+    INDEX idx_profesor (id_profesor),
+    INDEX idx_estado (estado_prestamo),
+    INDEX idx_fecha_devolucion (fecha_devolucion_esperada)
+) ENGINE=InnoDB COMMENT='Registro de préstamos de recursos a profesores';
+
