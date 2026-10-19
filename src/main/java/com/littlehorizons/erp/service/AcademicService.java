@@ -13,6 +13,8 @@ import com.littlehorizons.erp.dao.SubjectDao;
 import com.littlehorizons.erp.dao.SubjectDaoImpl;
 import com.littlehorizons.erp.dao.SubjectEnrollmentDao;
 import com.littlehorizons.erp.dao.SubjectEnrollmentDaoImpl;
+import com.littlehorizons.erp.dao.TeacherDao;
+import com.littlehorizons.erp.dao.TeacherDaoImpl;
 import com.littlehorizons.erp.model.AcademicRecord;
 import com.littlehorizons.erp.model.Attendance;
 import com.littlehorizons.erp.model.AverageLine;
@@ -45,22 +47,25 @@ public class AcademicService {
     private final SubjectEnrollmentDao subjectEnrollmentDao;
     private final AcademicRecordDao recordDao;
     private final AttendanceDao attendanceDao;
+    private final TeacherDao teacherDao;
     private final AppConfig config = AppConfig.getInstance();
     private final int academicYear = config.getAcademicYear();
 
     public AcademicService() {
         this(new SubjectDaoImpl(), new StudentDaoImpl(), new AssignmentDaoImpl(), new SubjectEnrollmentDaoImpl(),
-                new AcademicRecordDaoImpl(), new AttendanceDaoImpl());
+                new AcademicRecordDaoImpl(), new AttendanceDaoImpl(), new TeacherDaoImpl());
     }
 
     public AcademicService(SubjectDao subjectDao, StudentDao studentDao, AssignmentDao assignmentDao,
-                           SubjectEnrollmentDao subjectEnrollmentDao, AcademicRecordDao recordDao, AttendanceDao attendanceDao) {
+                           SubjectEnrollmentDao subjectEnrollmentDao, AcademicRecordDao recordDao, AttendanceDao attendanceDao,
+                           TeacherDao teacherDao) {
         this.subjectDao = subjectDao;
         this.studentDao = studentDao;
         this.assignmentDao = assignmentDao;
         this.subjectEnrollmentDao = subjectEnrollmentDao;
         this.recordDao = recordDao;
         this.attendanceDao = attendanceDao;
+        this.teacherDao = teacherDao;
     }
 
     public int academicYear() {
@@ -169,9 +174,8 @@ public class AcademicService {
     /** Marks one student in one subject; teacherId may be 0 when unknown. */
     public void markAttendance(int studentId, int subjectId, LocalDate date, String status, String notes, int teacherId) {
         Validation.requireOneOf(status, ATTENDANCE_STATUSES, "El estado de asistencia");
-        if (date == null || date.isAfter(LocalDate.now())) {
-            throw new BusinessException("No se puede registrar asistencia de una fecha futura.");
-        }
+        requireValidAttendanceDate(date);
+        requireTeacherIfGiven(teacherId);
         studentDao.findById(studentId).orElseThrow(() -> new NotFoundException("No existe un estudiante con id " + studentId));
         getSubject(subjectId);
         if (!subjectEnrollmentDao.isEnrolled(studentId, subjectId, date.getYear())) {
@@ -193,6 +197,13 @@ public class AcademicService {
      * @return number of students marked
      */
     public int markClassAttendance(int subjectId, LocalDate date, Map<Integer, String> exceptions, int teacherId) {
+        // Validate everything before the first insert so the class is never left half marked.
+        requireValidAttendanceDate(date);
+        if (date.getYear() != academicYear) {
+            throw new BusinessException("La fecha debe pertenecer al año académico " + academicYear + ".");
+        }
+        requireTeacherIfGiven(teacherId);
+        exceptions.values().forEach(status -> Validation.requireOneOf(status, ATTENDANCE_STATUSES, "El estado de asistencia"));
         List<String[]> students = enrolledStudents(subjectId);
         if (students.isEmpty()) {
             throw new BusinessException("La materia no tiene estudiantes inscritos en " + academicYear + ".");
@@ -203,6 +214,19 @@ public class AcademicService {
         });
         enrolledIds.forEach(id -> markAttendance(id, subjectId, date, exceptions.getOrDefault(id, Attendance.PRESENT), null, teacherId));
         return enrolledIds.size();
+    }
+
+    private static void requireValidAttendanceDate(LocalDate date) {
+        if (date == null || date.isAfter(LocalDate.now())) {
+            throw new BusinessException("No se puede registrar asistencia de una fecha futura.");
+        }
+    }
+
+    /** teacherId 0 means "not given"; any other value must be an existing teacher. */
+    private void requireTeacherIfGiven(int teacherId) {
+        if (teacherId != 0 && teacherDao.findById(teacherId).isEmpty()) {
+            throw new NotFoundException("No existe un profesor con id " + teacherId);
+        }
     }
 
     /** Rows: date, subject, status, notes. */
