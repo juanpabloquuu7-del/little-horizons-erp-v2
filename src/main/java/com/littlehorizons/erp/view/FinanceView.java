@@ -22,7 +22,8 @@ public class FinanceView extends BaseView {
                 "Ver conceptos de pago", "Registrar pago y generar factura (PDF)",
                 "Historial de pagos de un estudiante", "Historial de pagos de un acudiente",
                 "Generar / reimprimir factura de un pago existente", "Listar facturas emitidas",
-                "Reporte de morosos");
+                "Reporte de morosos", "Asignar / cambiar beca de un estudiante", "Quitar beca de un estudiante",
+                "Listar becas del año");
     }
 
     public void showConcepts(List<PaymentConcept> concepts) {
@@ -47,6 +48,10 @@ public class FinanceView extends BaseView {
 
     public void showInvoices(List<String[]> rows) {
         table(new String[]{"Factura", "Fecha", "Recibo", "Estudiante", "Archivo"}, rows);
+    }
+
+    public void showScholarships(List<String[]> rows) {
+        table(new String[]{"ID", "Estudiante", "Descuento %", "Motivo", "Asignada"}, rows);
     }
 
     public void showDelinquents(List<String[]> rows, int days, String conceptCode) {
