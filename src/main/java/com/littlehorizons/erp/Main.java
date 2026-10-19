@@ -37,6 +37,7 @@ public final class Main {
     }
 
     public static void main(String[] args) {
+        useUtf8Console();
         System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
         Scanner scanner = new Scanner(System.in, StandardCharsets.UTF_8);
 
@@ -57,6 +58,23 @@ public final class Main {
         } catch (RuntimeException e) {
             LoggerUtility.logError("Main", e);
             System.out.println("Error fatal. Revise logs/error_log.txt.");
+        }
+    }
+
+    /**
+     * The Windows console defaults to a legacy code page (850/437) that garbles accents and the
+     * Unicode menu frames. Switching it to UTF-8 (65001) makes the output match what the app prints.
+     */
+    private static void useUtf8Console() {
+        if (!System.getProperty("os.name", "").toLowerCase().contains("win")) {
+            return;
+        }
+        try {
+            new ProcessBuilder("cmd", "/c", "chcp 65001 >nul").inheritIO().start().waitFor();
+        } catch (java.io.IOException e) {
+            LoggerUtility.logError("Main.useUtf8Console", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }
