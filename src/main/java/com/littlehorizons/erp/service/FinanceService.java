@@ -11,12 +11,15 @@ import com.littlehorizons.erp.dao.InvoiceDao;
 import com.littlehorizons.erp.dao.InvoiceDaoImpl;
 import com.littlehorizons.erp.dao.PaymentDao;
 import com.littlehorizons.erp.dao.PaymentDaoImpl;
+import com.littlehorizons.erp.dao.ScholarshipDao;
+import com.littlehorizons.erp.dao.ScholarshipDaoImpl;
 import com.littlehorizons.erp.dao.StudentDao;
 import com.littlehorizons.erp.dao.StudentDaoImpl;
 import com.littlehorizons.erp.model.Guardian;
 import com.littlehorizons.erp.model.Invoice;
 import com.littlehorizons.erp.model.Payment;
 import com.littlehorizons.erp.model.PaymentConcept;
+import com.littlehorizons.erp.model.Scholarship;
 import com.littlehorizons.erp.model.Student;
 import com.littlehorizons.erp.util.CustomExceptions.BusinessException;
 import com.littlehorizons.erp.util.CustomExceptions.DocumentException;
@@ -45,21 +48,24 @@ public class FinanceService {
     private final GuardianDao guardianDao;
     private final EnrollmentDao enrollmentDao;
     private final GradeLevelDao gradeLevelDao;
+    private final ScholarshipDao scholarshipDao;
     private final AppConfig config = AppConfig.getInstance();
 
     public FinanceService() {
         this(new PaymentDaoImpl(), new InvoiceDaoImpl(), new StudentDaoImpl(), new GuardianDaoImpl(),
-                new EnrollmentDaoImpl(), new GradeLevelDaoImpl());
+                new EnrollmentDaoImpl(), new GradeLevelDaoImpl(), new ScholarshipDaoImpl());
     }
 
     public FinanceService(PaymentDao paymentDao, InvoiceDao invoiceDao, StudentDao studentDao, GuardianDao guardianDao,
-                          EnrollmentDao enrollmentDao, GradeLevelDao gradeLevelDao) {
+                          EnrollmentDao enrollmentDao, GradeLevelDao gradeLevelDao,
+                          ScholarshipDao scholarshipDao) {
         this.paymentDao = paymentDao;
         this.invoiceDao = invoiceDao;
         this.studentDao = studentDao;
         this.guardianDao = guardianDao;
         this.enrollmentDao = enrollmentDao;
         this.gradeLevelDao = gradeLevelDao;
+        this.scholarshipDao = scholarshipDao;
     }
 
     public List<PaymentConcept> listConcepts() {
@@ -72,23 +78,82 @@ public class FinanceService {
     }
 
     /**
-     * Suggested amount for a student: the base value, reduced by the sibling discount for recurring
-     * concepts when the student shares a guardian with other students. The user may override it.
+     * Suggested amount for a student. Recurring concepts get the larger of two discounts (they do not stack):
+     * the sibling discount, when the student shares a guardian with other students, and the student's
+     * scholarship for the current academic year. The user may override the amount.
      */
     public BigDecimal suggestedAmount(int studentId, int conceptId) {
         PaymentConcept concept = getConcept(conceptId);
-        studentDao.findById(studentId).orElseThrow(() -> new NotFoundException("No existe un estudiante con id " + studentId));
-        int discountPercent = config.getInt("business.siblingDiscountPercent", 10);
-        if (concept.recurring() && discountPercent > 0 && !studentDao.findSiblings(studentId).isEmpty()) {
-            BigDecimal factor = BigDecimal.valueOf(100 - discountPercent).movePointLeft(2);
-            return concept.baseAmount().multiply(factor).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal percent = discountPercent(studentId, concept);
+        if (percent.signum() == 0) {
+            return concept.baseAmount();
         }
-        return concept.baseAmount();
+        BigDecimal factor = BigDecimal.valueOf(100).subtract(percent).movePointLeft(2);
+        return concept.baseAmount().multiply(factor).setScale(2, RoundingMode.HALF_UP);
     }
 
     /** True when {@link #suggestedAmount} applied the sibling discount. */
     public boolean hasSiblingDiscount(int studentId, int conceptId) {
-        return suggestedAmount(studentId, conceptId).compareTo(getConcept(conceptId).baseAmount()) < 0;
+        PaymentConcept concept = getConcept(conceptId);
+        return concept.recurring() && siblingPercent(studentId).signum() > 0
+                && siblingPercent(studentId).compareTo(scholarshipPercent(studentId)) >= 0;
+    }
+
+    /** Description of the discount applied by {@link #suggestedAmount}, or an empty string when there is none. */
+    public String discountDescription(int studentId, int conceptId) {
+        PaymentConcept concept = getConcept(conceptId);
+        if (discountPercent(studentId, concept).signum() == 0) {
+            return "";
+        }
+        if (hasSiblingDiscount(studentId, conceptId)) {
+            return "descuento por hermanos (" + siblingPercent(studentId).stripTrailingZeros().toPlainString() + "%)";
+        }
+        return "beca (" + scholarshipPercent(studentId).stripTrailingZeros().toPlainString() + "%)";
+    }
+
+    private BigDecimal discountPercent(int studentId, PaymentConcept concept) {
+        studentDao.findById(studentId).orElseThrow(() -> new NotFoundException("No existe un estudiante con id " + studentId));
+        if (!concept.recurring()) {
+            return BigDecimal.ZERO;
+        }
+        return siblingPercent(studentId).max(scholarshipPercent(studentId));
+    }
+
+    private BigDecimal siblingPercent(int studentId) {
+        int percent = config.getInt("business.siblingDiscountPercent", 10);
+        return percent > 0 && !studentDao.findSiblings(studentId).isEmpty() ? BigDecimal.valueOf(percent) : BigDecimal.ZERO;
+    }
+
+    private BigDecimal scholarshipPercent(int studentId) {
+        return scholarshipDao.findByStudentAndYear(studentId, config.getAcademicYear())
+                .map(Scholarship::percent).orElse(BigDecimal.ZERO);
+    }
+
+    // ------------------------------------------------------------------ scholarships
+
+    /** Assigns (or replaces) the scholarship of a student for the current academic year. */
+    public void assignScholarship(int studentId, BigDecimal percent, String reason) {
+        Student student = studentDao.findById(studentId)
+                .orElseThrow(() -> new NotFoundException("No existe un estudiante con id " + studentId));
+        if (!student.isActive()) {
+            throw new BusinessException("El estudiante no está activo (estado: " + student.status() + ").");
+        }
+        if (percent == null || percent.signum() <= 0 || percent.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new BusinessException("El porcentaje de la beca debe estar entre 0 (sin incluir) y 100.");
+        }
+        scholarshipDao.save(new Scholarship(0, studentId, config.getAcademicYear(),
+                percent.setScale(2, RoundingMode.HALF_UP), reason, LocalDate.now()));
+    }
+
+    public void removeScholarship(int studentId) {
+        if (scholarshipDao.delete(studentId, config.getAcademicYear()) == 0) {
+            throw new NotFoundException("El estudiante " + studentId + " no tiene beca en " + config.getAcademicYear() + ".");
+        }
+    }
+
+    /** Rows: student id, student, percent, reason, assigned on. */
+    public List<String[]> scholarshipRows() {
+        return scholarshipDao.listRows(config.getAcademicYear());
     }
 
     /**
