@@ -20,9 +20,10 @@
 
 # 3. Autores
 
-- **Nombre completo:** *[completar]*
-- **Correo electrónico:** *[completar]*
-- **Contacto:** *[GitHub / LinkedIn / teléfono]*
+| Nombre completo | Correo electrónico | Contacto |
+|---|---|---|
+| Juan Pablo Quintanilla Rodríguez | juanpabloquuu7@gmail.com | [@juanpabloquuu7-del](https://github.com/juanpabloquuu7-del) |
+| *[Nombre del segundo integrante]* | *[correo]* | *[GitHub]* |
 
 # 4. Tecnologías Utilizadas
 
@@ -200,8 +201,8 @@ little-horizons-erp/
 
 # 15. Licencia
 
-Proyecto académico distribuido bajo licencia **MIT** (agregue un archivo `LICENSE` con su nombre).
+Proyecto académico distribuido bajo licencia **MIT** (ver el archivo [`LICENSE`](LICENSE)).
 
 # 16. Contacto
 
-*[nombre, correo y enlace al repositorio]*
+Juan Pablo Quintanilla Rodríguez — juanpabloquuu7@gmail.com — https://github.com/juanpabloquuu7-del
