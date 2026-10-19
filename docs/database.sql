@@ -310,3 +310,61 @@ CREATE TABLE participantes_evento (
     INDEX idx_estudiante (id_estudiante)
 ) ENGINE=InnoDB COMMENT='Registro de participación de estudiantes en eventos';
 
+-- ============================================
+-- 4. MÓDULO FINANCIERO
+-- ============================================
+
+-- Conceptos de pago (catálogo)
+CREATE TABLE conceptos_pago (
+    id_concepto INT AUTO_INCREMENT PRIMARY KEY,
+    codigo_concepto VARCHAR(20) NOT NULL UNIQUE,
+    nombre_concepto VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    monto_base DECIMAL(10,2) NOT NULL COMMENT 'Valor base del concepto en pesos colombianos',
+    es_recurrente BOOLEAN DEFAULT FALSE COMMENT 'Indica si es un pago recurrente (ej: pensión mensual)',
+    esta_activo BOOLEAN DEFAULT TRUE,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_activo (esta_activo),
+    INDEX idx_codigo (codigo_concepto)
+) ENGINE=InnoDB COMMENT='Catálogo de conceptos de pago del colegio';
+
+-- Tabla de pagos
+CREATE TABLE pagos (
+    id_pago INT AUTO_INCREMENT PRIMARY KEY,
+    id_estudiante INT NOT NULL,
+    id_acudiente INT COMMENT 'Acudiente que realizó el pago',
+    id_concepto INT NOT NULL,
+    monto_pagado DECIMAL(10,2) NOT NULL,
+    fecha_pago DATE NOT NULL,
+    metodo_pago ENUM('Efectivo', 'Transferencia', 'Tarjeta Débito', 'Tarjeta Crédito', 'Cheque') NOT NULL,
+    numero_recibo VARCHAR(50) UNIQUE,
+    año_academico INT COMMENT 'Año al que aplica el pago',
+    periodo_academico ENUM('I', 'II', 'III', 'IV', 'Anual') COMMENT 'Período al que aplica el pago',
+    notas TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante) ON DELETE CASCADE,
+    FOREIGN KEY (id_acudiente) REFERENCES acudientes(id_acudiente),
+    FOREIGN KEY (id_concepto) REFERENCES conceptos_pago(id_concepto),
+    INDEX idx_estudiante_fecha (id_estudiante, fecha_pago),
+    INDEX idx_concepto (id_concepto),
+    INDEX idx_fecha (fecha_pago),
+    INDEX idx_recibo (numero_recibo)
+) ENGINE=InnoDB COMMENT='Registro de todos los pagos realizados';
+
+-- Tabla de facturas electrónicas
+CREATE TABLE facturas (
+    id_factura INT AUTO_INCREMENT PRIMARY KEY,
+    numero_factura VARCHAR(50) NOT NULL UNIQUE COMMENT 'Número consecutivo de factura',
+    id_pago INT NOT NULL COMMENT 'Pago asociado a esta factura',
+    fecha_emision DATE NOT NULL,
+    cufe VARCHAR(100) COMMENT 'Código Único de Factura Electrónica (simulado)',
+    nombre_archivo_pdf VARCHAR(255) COMMENT 'Nombre del archivo PDF generado',
+    ruta_archivo VARCHAR(500) COMMENT 'Ruta completa donde se guardó el PDF',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_pago) REFERENCES pagos(id_pago) ON DELETE CASCADE,
+    INDEX idx_numero_factura (numero_factura),
+    INDEX idx_fecha_emision (fecha_emision),
+    INDEX idx_pago (id_pago)
+) ENGINE=InnoDB COMMENT='Registro de facturas electrónicas generadas';
+
