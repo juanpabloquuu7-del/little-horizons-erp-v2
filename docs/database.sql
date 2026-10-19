@@ -9,6 +9,8 @@
 --   * Se agrega la tabla `horarios_clase` (módulo académico). El enunciado (1.2)
 --     exige registrar días y horas de cada asignación para evitar conflictos
 --     básicos de horario, y el script oficial no tenía dónde guardarlos.
+--   * Se agrega la tabla `becas` para guardar el descuento por beca de cada
+--     estudiante (ajuste por estudiante que pide el módulo financiero).
 -- =====================================================================
 
 DROP DATABASE IF EXISTS erp_little_horizons;
@@ -367,6 +369,19 @@ CREATE TABLE facturas (
     INDEX idx_fecha_emision (fecha_emision),
     INDEX idx_pago (id_pago)
 ) ENGINE=InnoDB COMMENT='Registro de facturas electrónicas generadas';
+
+-- Becas por estudiante (tabla agregada: el enunciado pide ajustar el valor a pagar por estudiante)
+CREATE TABLE becas (
+    id_beca INT AUTO_INCREMENT PRIMARY KEY,
+    id_estudiante INT NOT NULL,
+    año_academico INT NOT NULL,
+    porcentaje_descuento DECIMAL(5,2) NOT NULL COMMENT 'Porcentaje de descuento sobre conceptos recurrentes',
+    motivo VARCHAR(255) COMMENT 'Razón de la beca (rendimiento, deportiva, socioeconómica...)',
+    fecha_asignacion DATE NOT NULL,
+    FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante) ON DELETE CASCADE,
+    UNIQUE KEY uk_beca_estudiante_anio (id_estudiante, año_academico),
+    CHECK (porcentaje_descuento > 0 AND porcentaje_descuento <= 100)
+) ENGINE=InnoDB COMMENT='Becas: porcentaje de descuento por estudiante y año';
 
 -- ============================================
 -- 5. MÓDULO DE GESTIÓN DE RECURSOS
@@ -2131,6 +2146,12 @@ INSERT INTO prestamos_profesor (id_recurso, id_profesor, fecha_prestamo, fecha_d
   (23, 2, '2026-09-28', '2026-10-05', NULL, 'Vencido'),
   (17, 5, '2026-10-16', '2026-10-23', NULL, 'Activo'),
   (12, 7, '2026-08-10', '2026-08-17', '2026-08-15', 'Devuelto');
+
+-- Becas de ejemplo
+INSERT INTO becas (id_estudiante, año_academico, porcentaje_descuento, motivo, fecha_asignacion) VALUES
+(3, 2026, 50.00, 'Beca por rendimiento académico', '2026-01-20'),
+(12, 2026, 25.00, 'Beca socioeconómica', '2026-01-20'),
+(27, 2026, 100.00, 'Beca deportiva', '2026-01-20');
 
 -- ============================================
 -- VERIFICACIÓN FINAL
