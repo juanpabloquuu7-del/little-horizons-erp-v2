@@ -28,9 +28,11 @@ import com.littlehorizons.erp.util.LoggerUtility;
 import com.littlehorizons.erp.util.PdfGenerator;
 import com.littlehorizons.erp.util.PdfGenerator.InvoiceData;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -164,7 +166,19 @@ public class FinanceService {
     public Path registerPaymentAndInvoice(int studentId, int conceptId, BigDecimal amount, String method,
                                           int academicYear, String period, String notes) {
         int paymentId = registerPayment(studentId, conceptId, amount, method, academicYear, period, notes);
-        return issueInvoice(paymentId);
+        try {
+            return issueInvoice(paymentId);
+        } catch (RuntimeException e) {
+            // Without an invoice the payment is undone, so the operation is all or nothing.
+            try {
+                paymentDao.delete(paymentId);
+            } catch (RuntimeException undo) {
+                e.addSuppressed(undo);
+            }
+            LoggerUtility.logError("FinanceService.registerPaymentAndInvoice", e);
+            throw new BusinessException("No se pudo generar la factura, así que el pago no se registró. Detalle: "
+                    + e.getMessage());
+        }
     }
 
     public int registerPayment(int studentId, int conceptId, BigDecimal amount, String method,
@@ -254,7 +268,12 @@ public class FinanceService {
                 payment.paymentDate()), output);
 
         if (existing == null) {
-            invoiceDao.insert(invoice);
+            try {
+                invoiceDao.insert(invoice);
+            } catch (RuntimeException e) {
+                deleteQuietly(output); // no orphan PDF without its invoice row
+                throw e;
+            }
         }
         return output.toAbsolutePath();
     }
@@ -276,6 +295,14 @@ public class FinanceService {
         return guardianDao.findByStudent(studentId).stream()
                 .max(Comparator.comparing(Guardian::financialResponsible))
                 .orElseThrow(() -> new BusinessException("El estudiante no tiene acudiente registrado."));
+    }
+
+    private static void deleteQuietly(Path file) {
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException e) {
+            LoggerUtility.logError("FinanceService.deleteQuietly", e);
+        }
     }
 
     private static int invoiceSequence(Invoice invoice) {

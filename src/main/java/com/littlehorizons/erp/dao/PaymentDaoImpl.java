@@ -61,6 +61,11 @@ public class PaymentDaoImpl extends BaseJdbcDao implements PaymentDao {
     }
 
     @Override
+    public void delete(int paymentId) {
+        update("DELETE FROM pagos WHERE id_pago = ?", paymentId);
+    }
+
+    @Override
     public int nextSequence() {
         return count("SELECT COALESCE(MAX(id_pago), 0) + 1 FROM pagos");
     }

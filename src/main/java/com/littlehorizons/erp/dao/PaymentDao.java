@@ -12,6 +12,9 @@ public interface PaymentDao {
     int insert(Payment payment);
     Optional<Payment> findById(int paymentId);
 
+    /** Deletes a payment (used to undo a payment whose invoice could not be issued). */
+    void delete(int paymentId);
+
     /** Next consecutive sequence used to build receipt numbers. */
     int nextSequence();
 
