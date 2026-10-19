@@ -23,7 +23,7 @@
 | Nombre completo | Correo electrónico | Contacto |
 |---|---|---|
 | Juan Pablo Quintanilla Rodríguez | juanpabloquuu7@gmail.com | [@juanpabloquuu7-del](https://github.com/juanpabloquuu7-del) |
-| *[Nombre del segundo integrante]* | *[correo]* | *[GitHub]* |
+| Miguel Alejandro Acevedo Acevedo | *[correo por completar]* | [@alejandro-xoxo](https://github.com/alejandro-xoxo) |
 
 # 4. Tecnologías Utilizadas
 
