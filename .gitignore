@@ -1,0 +1,6 @@
+target/
+facturas/*.pdf
+logs/*.txt
+!logs/error_log.txt
+nbproject/private/
+*.class
