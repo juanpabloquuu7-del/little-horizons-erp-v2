@@ -55,7 +55,7 @@
 
 El script tiene dos secciones: **DDL** (basado en el script oficial v2.0 del anexo) y **DML** (≥ 30 registros por tabla principal: estudiantes, acudientes, profesores, materias [60], registros académicos [300], pagos [150], clubes y recursos).
 
-> **Cambio justificado respecto al script oficial:** se agregó la tabla `horarios_clase`, porque el enunciado (1.2) exige registrar días y horas de cada asignación para evitar conflictos de horario y el script oficial no tenía dónde guardarlos.
+> **Cambio justificado respecto al script oficial:** se agregó la tabla `horarios_clase`, porque el enunciado (1.2) exige registrar días y horas de cada asignación para evitar conflictos de horario y el script oficial no tenía dónde guardarlos. También se agregó la tabla `becas` (porcentaje de descuento por estudiante y año), para el ajuste por beca que pide el módulo financiero.
 
 ## 6.2. Configuración de credenciales
 
@@ -168,7 +168,7 @@ little-horizons-erp/
 
 **4. Actividades Extracurriculares:** clubes con **cupo máximo estricto** (inscripción atómica), retiro con motivo; eventos (Académico, Cultural, Deportivo, Social, Científico), participantes y posiciones en eventos con competencia.
 
-**5. Gestión Financiera:** catálogo de conceptos, **descuento automático por hermanos** y monto editable por estudiante, registro de pagos (método y número de recibo consecutivo), historial por estudiante y por acudiente, **factura electrónica PDF** con CUFE (SHA-256) y QR generada al confirmar el pago, reporte de morosos.
+**5. Gestión Financiera:** catálogo de conceptos, **descuento automático por hermanos**, **becas por estudiante** (se aplica el mayor de los dos descuentos, no se suman) y monto editable por estudiante, registro de pagos (método y número de recibo consecutivo), historial por estudiante y por acudiente, **factura electrónica PDF** con CUFE (SHA-256) y QR generada al confirmar el pago, reporte de morosos.
 
 **6. Gestión de Recursos:** inventario por categoría y ubicación, estados (Disponible, Prestado, En Mantenimiento, Dado de Baja), préstamos y devoluciones transaccionales a estudiantes y profesores (tablas separadas), reporte de préstamos vencidos.
 
