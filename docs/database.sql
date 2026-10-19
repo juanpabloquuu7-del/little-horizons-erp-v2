@@ -111,3 +111,132 @@ CREATE TABLE matriculas (
     INDEX idx_estado (estado_matricula)
 ) ENGINE=InnoDB COMMENT='Historial de matrículas de estudiantes por año y grado';
 
+-- ============================================
+-- 2. MÓDULO ACADÉMICO
+-- ============================================
+
+-- Tabla de materias/asignaturas
+CREATE TABLE materias (
+    id_materia INT AUTO_INCREMENT PRIMARY KEY,
+    codigo_materia VARCHAR(20) NOT NULL UNIQUE COMMENT 'Código único de la materia (ej: MAT-5, ESP-3)',
+    nombre_materia VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    id_grado INT NOT NULL COMMENT 'Grado al que pertenece la materia',
+    horas_semanales INT DEFAULT 2 COMMENT 'Horas semanales asignadas',
+    esta_activa BOOLEAN DEFAULT TRUE,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_grado) REFERENCES grados(id_grado),
+    INDEX idx_grado (id_grado),
+    INDEX idx_activa (esta_activa),
+    INDEX idx_codigo (codigo_materia)
+) ENGINE=InnoDB COMMENT='Catálogo de materias por grado';
+
+-- Tabla de profesores
+CREATE TABLE profesores (
+    id_profesor INT AUTO_INCREMENT PRIMARY KEY,
+    tipo_documento ENUM('CC', 'CE', 'Pasaporte') NOT NULL DEFAULT 'CC',
+    numero_documento VARCHAR(20) NOT NULL UNIQUE,
+    primer_nombre VARCHAR(100) NOT NULL,
+    segundo_nombre VARCHAR(100),
+    primer_apellido VARCHAR(100) NOT NULL,
+    segundo_apellido VARCHAR(100),
+    correo_electronico VARCHAR(100) NOT NULL UNIQUE,
+    telefono VARCHAR(20),
+    especializacion VARCHAR(100) COMMENT 'Área de especialización (Matemáticas, Español, etc.)',
+    fecha_contratacion DATE NOT NULL,
+    estado ENUM('Activo', 'Inactivo', 'Licencia') DEFAULT 'Activo',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_documento (tipo_documento, numero_documento),
+    INDEX idx_estado (estado),
+    INDEX idx_nombre (primer_apellido, segundo_apellido)
+) ENGINE=InnoDB COMMENT='Información de profesores';
+
+-- Asignación de materias a profesores
+CREATE TABLE asignaciones_profesor (
+    id_asignacion INT AUTO_INCREMENT PRIMARY KEY,
+    id_profesor INT NOT NULL,
+    id_materia INT NOT NULL,
+    año_academico INT NOT NULL,
+    seccion VARCHAR(10) COMMENT 'Sección o grupo (A, B, C)',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_profesor) REFERENCES profesores(id_profesor) ON DELETE CASCADE,
+    FOREIGN KEY (id_materia) REFERENCES materias(id_materia) ON DELETE CASCADE,
+    UNIQUE KEY asignacion_unica (id_profesor, id_materia, año_academico, seccion),
+    INDEX idx_profesor_año (id_profesor, año_academico),
+    INDEX idx_materia_año (id_materia, año_academico)
+) ENGINE=InnoDB COMMENT='Asignación de profesores a materias por año académico';
+
+-- Horarios de clase de cada asignación (AGREGADA: requerida por el enunciado 1.2)
+CREATE TABLE horarios_clase (
+    id_horario INT AUTO_INCREMENT PRIMARY KEY,
+    id_asignacion INT NOT NULL,
+    dia_semana ENUM('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes') NOT NULL,
+    hora_inicio TIME NOT NULL,
+    hora_fin TIME NOT NULL,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_asignacion) REFERENCES asignaciones_profesor(id_asignacion) ON DELETE CASCADE,
+    CHECK (hora_fin > hora_inicio),
+    INDEX idx_asignacion_dia (id_asignacion, dia_semana)
+) ENGINE=InnoDB COMMENT='Días y horas en que cada profesor dicta cada materia';
+
+-- Inscripción de estudiantes en materias
+CREATE TABLE inscripciones_materia (
+    id_inscripcion INT AUTO_INCREMENT PRIMARY KEY,
+    id_estudiante INT NOT NULL,
+    id_materia INT NOT NULL,
+    año_academico INT NOT NULL,
+    periodo_academico ENUM('I', 'II', 'III', 'IV') NOT NULL COMMENT 'Período académico',
+    seccion VARCHAR(10) COMMENT 'Sección o grupo asignado',
+    fecha_inscripcion DATE NOT NULL,
+    estado ENUM('Activa', 'Retirada', 'Completada') DEFAULT 'Activa',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante) ON DELETE CASCADE,
+    FOREIGN KEY (id_materia) REFERENCES materias(id_materia) ON DELETE CASCADE,
+    UNIQUE KEY inscripcion_unica (id_estudiante, id_materia, año_academico, periodo_academico),
+    INDEX idx_estudiante_año (id_estudiante, año_academico),
+    INDEX idx_materia_periodo (id_materia, periodo_academico)
+) ENGINE=InnoDB COMMENT='Inscripción de estudiantes en materias específicas';
+
+-- Tabla de registros académicos (calificaciones/notas)
+CREATE TABLE registros_academicos (
+    id_registro INT AUTO_INCREMENT PRIMARY KEY,
+    id_estudiante INT NOT NULL,
+    id_materia INT NOT NULL,
+    id_profesor INT NOT NULL,
+    año_academico INT NOT NULL,
+    periodo_academico ENUM('I', 'II', 'III', 'IV', 'Final') NOT NULL,
+    valor_nota DECIMAL(2,1) NOT NULL COMMENT 'Nota de 0.0 a 5.0 según estándar colombiano',
+    observaciones TEXT,
+    fecha_registro DATE NOT NULL,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante) ON DELETE CASCADE,
+    FOREIGN KEY (id_materia) REFERENCES materias(id_materia) ON DELETE CASCADE,
+    FOREIGN KEY (id_profesor) REFERENCES profesores(id_profesor),
+    CHECK (valor_nota >= 0.0 AND valor_nota <= 5.0),
+    UNIQUE KEY registro_unico (id_estudiante, id_materia, año_academico, periodo_academico),
+    INDEX idx_estudiante_año (id_estudiante, año_academico),
+    INDEX idx_materia_periodo (id_materia, periodo_academico),
+    INDEX idx_valor_nota (valor_nota)
+) ENGINE=InnoDB COMMENT='Registro de calificaciones de estudiantes';
+
+-- Tabla de asistencia
+CREATE TABLE asistencias (
+    id_asistencia INT AUTO_INCREMENT PRIMARY KEY,
+    id_estudiante INT NOT NULL,
+    id_materia INT NOT NULL,
+    fecha_asistencia DATE NOT NULL,
+    estado_asistencia ENUM('Presente', 'Ausente', 'Tardanza', 'Excusa Médica') NOT NULL,
+    observaciones TEXT,
+    registrado_por INT COMMENT 'ID del profesor que registró la asistencia',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante) ON DELETE CASCADE,
+    FOREIGN KEY (id_materia) REFERENCES materias(id_materia) ON DELETE CASCADE,
+    FOREIGN KEY (registrado_por) REFERENCES profesores(id_profesor),
+    UNIQUE KEY asistencia_unica (id_estudiante, id_materia, fecha_asistencia),
+    INDEX idx_estudiante_fecha (id_estudiante, fecha_asistencia),
+    INDEX idx_materia_fecha (id_materia, fecha_asistencia),
+    INDEX idx_estado (estado_asistencia)
+) ENGINE=InnoDB COMMENT='Registro de asistencia diaria de estudiantes';
+
